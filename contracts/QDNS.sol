@@ -1,8 +1,9 @@
-pragma solidity >=0.8.17;
+pragma solidity >=0.8.9;
 
-import "../node_modules/@openzeppelin/contracts/access/Ownable.sol";
 import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
-
+import "@q-dev/contracts/ContractRegistry.sol";
+import "./QDNSParameters.sol";
+import "./Locals.sol";
 
 contract QDNS is Ownable {
   /** USINGS */
@@ -13,7 +14,7 @@ contract QDNS is Ownable {
     bytes name;
     bytes12 topLevel;
     address owner;
-    bytes15 ip;
+    address addr;
     uint256 expires;
   }
 
@@ -23,9 +24,9 @@ contract QDNS is Ownable {
     uint256 expires;
   }
 
+  ContractRegistry registry;
+
   /** CONSTANTS */
-  uint256 public constant DOMAIN_NAME_COST = 1 ether;
-  uint256 public constant DOMAIN_NAME_COST_SHORT_ADDITION = 1 ether;
   uint256 public constant DOMAIN_EXPIRATION_DATE = 365 days;
   uint8 public constant DOMAIN_NAME_MIN_LENGTH = 5;
   uint8 public constant DOMAIN_NAME_EXPENSIVE_LENGTH = 8;
@@ -38,7 +39,9 @@ contract QDNS is Ownable {
   mapping(bytes32 => Receipt) public receiptDetails;
 
   /**
-   * MODIFIERS
+   * *************
+   * **MODIFIERS**
+   * *************
    */
   modifier isAvailable(bytes memory domain, bytes12 topLevel) {
     bytes32 domainHash = getDomainHash(domain, topLevel);
@@ -81,7 +84,9 @@ contract QDNS is Ownable {
   }
 
   /**
-   *  EVENTS
+   * *************
+   * ***EVENTS****
+   * *************
    */
   event LogDomainNameRegistered(
     uint256 indexed timestamp,
@@ -100,7 +105,7 @@ contract QDNS is Ownable {
     uint256 indexed timestamp,
     bytes domainName,
     bytes12 topLevel,
-    bytes15 newIp
+    address newAddr
   );
 
   event LogDomainNameTransferred(
@@ -125,20 +130,22 @@ contract QDNS is Ownable {
   );
 
   /**
-   * @dev - Constructor of the contract
+   * Constructor of the contract
    */
-  constructor() public {}
+  constructor(address _registry) public {
+    registry = ContractRegistry(_registry);
+  }
 
   /*
-   * @dev - function to register domain name
+   * Function to register domain name
    * @param domain - domain name to be registered
    * @param topLevel - domain top level (TLD)
-   * @param ip - the ip of the host
+   * @param addr - the addr of the host
    */
   function register(
     bytes memory domain,
     bytes12 topLevel,
-    bytes15 ip
+    address addr
   )
     public
     payable
@@ -155,7 +162,7 @@ contract QDNS is Ownable {
       name: domain,
       topLevel: topLevel,
       owner: msg.sender,
-      ip: ip,
+      addr: addr,
       expires: block.timestamp + DOMAIN_EXPIRATION_DATE
     });
 
@@ -164,7 +171,7 @@ contract QDNS is Ownable {
 
     // create an receipt entry for this domain purchase
     Receipt memory newReceipt = Receipt({
-      amountPaidWei: DOMAIN_NAME_COST,
+      amountPaidWei: getCurrentPrice(),
       timestamp: block.timestamp,
       expires: block.timestamp + DOMAIN_EXPIRATION_DATE
     });
@@ -182,7 +189,7 @@ contract QDNS is Ownable {
     emit LogReceipt(
       block.timestamp,
       domain,
-      DOMAIN_NAME_COST,
+      getCurrentPrice(),
       block.timestamp + DOMAIN_EXPIRATION_DATE
     );
 
@@ -191,7 +198,7 @@ contract QDNS is Ownable {
   }
 
   /*
-   * @dev - function to extend domain expiration date
+   * Function to extend domain expiration date
    * @param domain - domain name to be registered
    * @param topLevel - top level
    */
@@ -209,7 +216,7 @@ contract QDNS is Ownable {
 
     // create a receipt entity
     Receipt memory newReceipt = Receipt({
-      amountPaidWei: DOMAIN_NAME_COST,
+      amountPaidWei: getCurrentPrice(),
       timestamp: block.timestamp,
       expires: block.timestamp + DOMAIN_EXPIRATION_DATE
     });
@@ -230,34 +237,34 @@ contract QDNS is Ownable {
     emit LogReceipt(
       block.timestamp,
       domain,
-      DOMAIN_NAME_COST,
+      getCurrentPrice(),
       block.timestamp + DOMAIN_EXPIRATION_DATE
     );
   }
 
   /*
-   * @dev - function to edit domain name
+   * Function to edit domain name
    * @param domain - the domain name to be editted
    * @param topLevel - tld of the domain
-   * @param newIp - the new ip for the domain
+   * @param newAddr - the new addr for the domain
    */
   function edit(
     bytes memory domain,
     bytes12 topLevel,
-    bytes15 newIp
+    address newAddr
   ) public isDomainOwner(domain, topLevel) {
     // calculate the domain hash - unique id
     bytes32 domainHash = getDomainHash(domain, topLevel);
 
-    // update the new ip
-    domainNames[domainHash].ip = newIp;
+    // update the new addr
+    domainNames[domainHash].addr = newAddr;
 
     // log change
-    emit LogDomainNameEdited(block.timestamp, domain, topLevel, newIp);
+    emit LogDomainNameEdited(block.timestamp, domain, topLevel, newAddr);
   }
 
   /*
-   * @dev - Transfer domain ownership
+   * Transfer domain ownership
    * @param domain - name of the domain
    * @param topLevel - tld of the domain
    * @param newOwner - address of the new owner
@@ -287,46 +294,63 @@ contract QDNS is Ownable {
   }
 
   /*
-   * @dev - Get ip of domain
+   * Get addr of domain
    * @param domain
    * @param topLevel
    */
-  function getIP(bytes memory domain, bytes12 topLevel)
+  function getAddress(bytes memory domain, bytes12 topLevel)
     public
     view
-    returns (bytes15)
+    returns (address)
   {
     // calculate the hash of the domain
     bytes32 domainHash = getDomainHash(domain, topLevel);
 
-    // return the ip property of the domain from storage
-    return domainNames[domainHash].ip;
+    // return the addr property of the domain from storage
+    return domainNames[domainHash].addr;
+  }
+
+  function getCurrentPrice() public view returns (uint256) {
+    address qdnsParamsAddress = registry.mustGetAddress(REGISTRY_KEY_QDNS_OWNER);
+    uint currentPrice = QDNSParameters(qdnsParamsAddress).getUint(REGISTRY_KEY_QDNS_PRICE);
+    
+    return currentPrice;
+  }
+
+  function getLongAddressFee() public view returns (uint256) {
+    address qdnsParamsAddress = registry.mustGetAddress(REGISTRY_KEY_QDNS_OWNER);
+    uint longAddressFee = QDNSParameters(qdnsParamsAddress).getUint(REGISTRY_KEY_QDNS_LONG_ADDRESS_FEE);
+    
+    return longAddressFee;
   }
 
   /*
-   * @dev - Get price of domain
+   * Get price of domain
    * @param domain
    */
-  function getPrice(bytes memory domain) public pure returns (uint256) {
+  function getPrice(bytes memory domain) public view returns (uint256) {
     // check if the domain name fits in the expensive or cheap categroy
+    uint currentPrice = getCurrentPrice();
+    uint longAddressFee = getLongAddressFee();
+
     if (domain.length < DOMAIN_NAME_EXPENSIVE_LENGTH) {
       // if the domain is too short - its more expensive
-      return DOMAIN_NAME_COST + DOMAIN_NAME_COST_SHORT_ADDITION;
+      return currentPrice + longAddressFee;
     }
 
     // otherwise return the regular price
-    return DOMAIN_NAME_COST;
+    return currentPrice;
   }
 
   /**
-   * @dev - Get receipt list for the msg.sender
+   * Get receipt list for the msg.sender
    */
   function getReceiptList() public view returns (bytes32[] memory) {
     return paymentReceipts[msg.sender];
   }
 
   /*
-   * @dev - Get single receipt
+   * Get single receipt
    * @param receiptKey
    */
   function getReceipt(bytes32 receiptKey)
@@ -346,7 +370,7 @@ contract QDNS is Ownable {
   }
 
   /*
-   * @dev - Get (domain name + top level) hash used for unique identifier
+   * Get (domain name + top level) hash used for unique identifier
    * @param domain
    * @param topLevel
    * @return domainHash
@@ -356,12 +380,11 @@ contract QDNS is Ownable {
     pure
     returns (bytes32)
   {
-    // @dev - tightly pack parameters in struct for keccak256
     return keccak256(abi.encodePacked(domain, topLevel));
   }
 
   /*
-   * @dev - Get recepit key hash - unique identifier
+   * Get recepit key hash - unique identifier
    * @param domain
    * @param topLevel
    * @return receiptKey
@@ -371,7 +394,6 @@ contract QDNS is Ownable {
     view
     returns (bytes32)
   {
-    // @dev - tightly pack parameters in struct for keccak256
     return
       keccak256(
         abi.encodePacked(domain, topLevel, msg.sender, block.timestamp)
@@ -379,7 +401,7 @@ contract QDNS is Ownable {
   }
 
   /**
-   * @dev - Withdraw function
+   * Withdraw function
    */
   function withdraw() public onlyOwner {
     payable(msg.sender).transfer(address(this).balance);
