@@ -175,7 +175,7 @@ $(document).ready(async function () {
       .then(function (result) {
         try {
           let domainOwner = result;
-          showInfo(`Domain Owner: ${domainOwner}`);
+          showInfo(`Adress: ${domainOwner}`);
         } catch (error) {
           console.log({ error });
         }
@@ -243,7 +243,7 @@ $(document).ready(async function () {
   }
 
   function showInfo(message) {
-    swal("Info:", message, "question");
+    swal("Info", message, "question");
     console.log(message);
   }
   //
