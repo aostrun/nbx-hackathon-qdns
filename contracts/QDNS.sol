@@ -311,14 +311,14 @@ contract QDNS is Ownable {
   }
 
   function getCurrentPrice() public view returns (uint256) {
-    address qdnsParamsAddress = registry.mustGetAddress(REGISTRY_KEY_QDNS_OWNER);
+    address qdnsParamsAddress = registry.mustGetAddress(REGISTRY_KEY_QDNS_PARAMS);
     uint currentPrice = QDNSParameters(qdnsParamsAddress).getUint(REGISTRY_KEY_QDNS_PRICE);
     
     return currentPrice;
   }
 
   function getLongAddressFee() public view returns (uint256) {
-    address qdnsParamsAddress = registry.mustGetAddress(REGISTRY_KEY_QDNS_OWNER);
+    address qdnsParamsAddress = registry.mustGetAddress(REGISTRY_KEY_QDNS_PARAMS);
     uint longAddressFee = QDNSParameters(qdnsParamsAddress).getUint(REGISTRY_KEY_QDNS_LONG_ADDRESS_FEE);
     
     return longAddressFee;
@@ -332,7 +332,7 @@ contract QDNS is Ownable {
     // check if the domain name fits in the expensive or cheap categroy
     uint currentPrice = getCurrentPrice();
     uint longAddressFee = getLongAddressFee();
-
+    
     if (domain.length < DOMAIN_NAME_EXPENSIVE_LENGTH) {
       // if the domain is too short - its more expensive
       return currentPrice + longAddressFee;
