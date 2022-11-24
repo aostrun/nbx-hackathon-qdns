@@ -1,13 +1,12 @@
-# Sample Hardhat Project
+# QDNS - Q Name Service
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+> Project developed during the NBX Hackathon
 
-Try running some of the following tasks:
+Q Name Service (QNS) is inspired by the ENS project, but with full integration of Q's governance. Main goal of QNS is to improve the accessibility of using Q blockchain, and to lower the possibility of error when using plain addresses.
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
+QNS allows users to register a semantic name that points to their address. Also allows them to edit & transfer owned domains.
+
+In order to deploy contracts, create a `.env` file, and define the private key of the account that deploys the contracts. Example of the env file:
+```
+PRIVATE_KEY=0x1234...1234
 ```
